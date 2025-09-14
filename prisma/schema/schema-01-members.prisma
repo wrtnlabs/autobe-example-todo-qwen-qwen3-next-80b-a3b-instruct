@@ -1,0 +1,73 @@
+/// Stores authentication credentials and identity information for todo list
+/// users. Each member has a unique email and hashed password for secure
+/// login.
+///
+/// @namespace Members
+/// @author AutoBE - https://github.com/wrtnlabs/autobe
+model todo_list_members {
+  //----
+  // COLUMNS
+  //----
+  /// Primary Key.
+  id String @id
+  
+  /// User's email address used for authentication. Must be unique across the
+  /// system.
+  email String
+  
+  /// Hashed password using bcrypt algorithm with cost factor 12. Never stores
+  /// plain text passwords.
+  password_hash String
+  
+  /// Timestamp when this user account was created.
+  created_at DateTime
+  
+  /// Timestamp when this user account was last updated.
+  updated_at DateTime
+  
+  /// Soft delete timestamp. If null, account is active; if set, account is
+  /// logically deleted.
+  deleted_at DateTime?
+  
+  //----
+  // RELATIONS
+  //----
+  todo_list_member_roles todo_list_member_roles?
+  todo_list_todos todo_list_todos[]
+  
+  @@unique([email])
+  @@index([created_at])
+  @@index([updated_at])
+}
+
+/// Defines the user roles available in the system. Currently only supports
+/// 'member' role. Each member is linked to exactly one role.
+///
+/// @namespace Members
+/// @author AutoBE - https://github.com/wrtnlabs/autobe
+model todo_list_member_roles {
+  //----
+  // COLUMNS
+  //----
+  /// Primary Key.
+  id String @id
+  
+  /// References the member who holds this role. {@link todo_list_members.id}.
+  todo_list_member_id String
+  
+  /// The name of the role. Must be exactly 'member' as this system supports
+  /// only one role.
+  role_name String
+  
+  /// Timestamp when this role assignment was created.
+  created_at DateTime
+  
+  //----
+  // RELATIONS
+  //----
+  member todo_list_members @relation(fields: [todo_list_member_id], references: [id], onDelete: Cascade)
+  
+  @@unique([todo_list_member_id])
+  @@unique([role_name])
+  @@index([created_at])
+}

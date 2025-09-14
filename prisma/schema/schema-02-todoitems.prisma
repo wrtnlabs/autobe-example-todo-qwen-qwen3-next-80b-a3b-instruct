@@ -1,0 +1,45 @@
+/// Todo items owned by members. Each todo represents a personal task that
+/// can be toggled between active and completed states. This model is primary
+/// as users directly manage these items independently through creation,
+/// editing, status toggling, and deletion operations. References
+/// todo_list_members to ensure data ownership. Never modified after
+/// completion.
+///
+/// @namespace TodoItems
+/// @author AutoBE - https://github.com/wrtnlabs/autobe
+model todo_list_todos {
+  //----
+  // COLUMNS
+  //----
+  /// Primary Key.
+  id String @id
+  
+  /// Owner of this todo item. {@link todo_list_members.id}.
+  todo_list_member_id String
+  
+  /// The task title. Must be 1-255 characters, non-empty, non-whitespace only.
+  /// Preserves internal whitespace but trims leading/trailing spaces.
+  title String
+  
+  /// Current state of the todo item. Must be exactly 'active' or 'completed'.
+  /// Newly created items have 'active' status. Title cannot be edited when
+  /// status is 'completed'.
+  status String
+  
+  /// Timestamp when the todo item was created. Always set to current time in
+  /// Asia/Seoul timezone upon creation. Never modified.
+  created_at DateTime
+  
+  /// Timestamp when the todo item was last modified (title updated or status
+  /// toggled). Always updated on changes. Not set on creation.
+  updated_at DateTime
+  
+  //----
+  // RELATIONS
+  //----
+  member todo_list_members @relation(fields: [todo_list_member_id], references: [id], onDelete: Cascade)
+  
+  @@unique([todo_list_member_id, id])
+  @@index([todo_list_member_id, created_at])
+  @@index([status, todo_list_member_id])
+}
