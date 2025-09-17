@@ -40,8 +40,8 @@ import { MemberPayload } from "../decorators/payload/MemberPayload";
  * @param props.member - The authenticated member making the request
  * @param props.todoId - Unique identifier of the target todo item
  * @returns Complete details of the requested todo item
- * @throws {Error} When todo item doesn't exist or doesn't belong to the
- *   authenticated member (404 Not Found)
+ * @throws {Error} When the requested todo item does not exist or does not
+ *   belong to the authenticated user
  */
 export async function gettodoListMemberTodosTodoId(props: {
   member: MemberPayload;
@@ -49,12 +49,16 @@ export async function gettodoListMemberTodosTodoId(props: {
 }): Promise<ITodoListTodo> {
   const { member, todoId } = props;
 
-  const todo = await MyGlobal.prisma.todo_list_todos.findUniqueOrThrow({
+  const todo = await MyGlobal.prisma.todo_list_todos.findUnique({
     where: {
       id: todoId,
       todo_list_member_id: member.id,
     },
   });
+
+  if (!todo) {
+    throw new Error("Not found");
+  }
 
   return {
     id: todo.id,

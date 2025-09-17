@@ -23,27 +23,20 @@ import { MemberPayload } from "../decorators/payload/MemberPayload";
  *
  * Security is enforced through strict ownership validation: if the requested
  * todo item does not belong to the authenticated user, the request is rejected
- * with a 404 Not Found response. The operation does not support partial
+ * with a 403 Forbidden response. The operation does not support partial
  * updates; the request must include at least one of the fields to update (title
  * or status). If neither is provided, the request is invalid.
- *
- * This operation is essential for personal task management, enabling users to
- * refine their tasks' details or mark completion. It preserves data integrity
- * by preventing editing of completed tasks and ensures users can only modify
- * their own data in compliance with the system's single-user ownership model.
  *
  * @param props - Request properties
  * @param props.member - The authenticated member making the request
  * @param props.todoId - Unique identifier of the todo item to update
- * @param props.body - Fields to update for the todo item: title (1-255 chars,
- *   non-empty) or status ('active' or 'completed')
+ * @param props.body - Fields to update: title (1-255 chars, non-empty) or
+ *   status ('active' or 'completed')
  * @returns The updated todo item with modified title or status and updated_at
  *   timestamp
- * @throws {Error} When todo item is not found or doesn't belong to
- *   authenticated member
- * @throws {Error} When title update is attempted on completed todo
- * @throws {Error} When no update fields are provided (both title and status are
- *   undefined)
+ * @throws {Error} When todo item not found
+ * @throws {Error} When user is not authorized to update this item
+ * @throws {Error} When attempting to update title of a completed todo item
  */
 export async function puttodoListMemberTodosTodoId(props: {
   member: MemberPayload;
@@ -52,48 +45,44 @@ export async function puttodoListMemberTodosTodoId(props: {
 }): Promise<ITodoListTodo> {
   const { member, todoId, body } = props;
 
-  // Fetch the todo item
   const todo = await MyGlobal.prisma.todo_list_todos.findUnique({
     where: { id: todoId },
   });
 
-  // If todo doesn't exist, throw 404 (security-by-obscurity: don't leak existence)
-  if (!todo) throw new Error("Todo not found");
+  if (!todo) throw new Error("Todo item not found");
 
-  // Verify ownership: todo_list_member_id must match member.id
-  if (todo.todo_list_member_id !== member.id) throw new Error("Todo not found");
-
-  // Validate update constraints: at least one field must be provided
-  if (body.title === undefined && body.status === undefined) {
-    throw new Error("At least one of title or status must be provided");
+  if (todo.todo_list_member_id !== member.id) {
+    throw new Error("Unauthorized: You can only update your own todo items");
   }
 
-  // Check business rule: cannot update title when status is 'completed'
+  // Validate business rule: cannot update title if status is 'completed'
   if (body.title !== undefined && todo.status === "completed") {
-    throw new Error("Cannot update title of a completed todo");
+    throw new Error("Forbidden: Cannot update title of a completed todo item");
   }
 
-  // Get current timestamp
-  const now: string & tags.Format<"date-time"> = toISOStringSafe(new Date());
+  const updateData: any = {};
 
-  // Prepare update data
+  if (body.title !== undefined) {
+    updateData.title = body.title;
+  }
+
+  if (body.status !== undefined) {
+    updateData.status = body.status;
+  }
+
+  updateData.updated_at = toISOStringSafe(new Date());
+
   const updated = await MyGlobal.prisma.todo_list_todos.update({
     where: { id: todoId },
-    data: {
-      title: body.title !== undefined ? body.title : undefined,
-      status: body.status !== undefined ? body.status : undefined,
-      updated_at: now,
-    },
+    data: updateData,
   });
 
-  // Return the updated todo item
-  // All date fields: use the ones that came from DB or the one we just set
   return {
     id: updated.id,
     todo_list_member_id: updated.todo_list_member_id,
     title: updated.title,
     status: updated.status,
-    created_at: updated.created_at, // Already string from DB
-    updated_at: updated.updated_at, // Already string from DB
+    created_at: toISOStringSafe(updated.created_at),
+    updated_at: toISOStringSafe(updated.updated_at),
   };
 }

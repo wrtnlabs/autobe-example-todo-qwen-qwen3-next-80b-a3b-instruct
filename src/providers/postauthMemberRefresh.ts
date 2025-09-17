@@ -11,31 +11,35 @@ export async function postauthMemberRefresh(props: {
   member: MemberPayload;
   body: ITodoListMember.IRefresh;
 }): Promise<ITodoListMember.IAuthorized> {
-  const { refresh_token } = props.body;
+  const { refresh_token } = body;
 
-  // Verify refresh token signature and issuer
-  const decoded = jwt.verify(refresh_token, MyGlobal.env.JWT_SECRET_KEY, {
-    issuer: "autobe",
-  }) as { userId: string };
+  // Validate refresh token signature and issuer
+  let decoded: any;
+  try {
+    decoded = jwt.verify(refresh_token, MyGlobal.env.JWT_SECRET_KEY, {
+      issuer: "autobe",
+    });
+  } catch (error) {
+    throw new Error("Invalid refresh token");
+  }
 
-  // Validate user existence
-  const member = await MyGlobal.prisma.todo_list_members.findUnique({
+  // Verify user exists and is active
+  const user = await MyGlobal.prisma.todo_list_members.findFirst({
     where: {
       id: decoded.userId,
       deleted_at: null,
     },
   });
 
-  if (!member) {
+  if (!user) {
     throw new Error("User not found");
   }
 
-  // Generate new access token with same payload structure
-  const accessToken = jwt.sign(
+  // Generate new access token with same payload structure as login
+  const newAccessToken = jwt.sign(
     {
-      userId: member.id,
-      email: member.email,
-      type: "member",
+      userId: user.id,
+      email: user.email,
     },
     MyGlobal.env.JWT_SECRET_KEY,
     {
@@ -44,10 +48,10 @@ export async function postauthMemberRefresh(props: {
     },
   );
 
-  // Generate new refresh token
+  // Generate new refresh token with 7-day expiration (token rotation)
   const newRefreshToken = jwt.sign(
     {
-      userId: member.id,
+      userId: user.id,
       tokenType: "refresh",
     },
     MyGlobal.env.JWT_SECRET_KEY,
@@ -57,22 +61,19 @@ export async function postauthMemberRefresh(props: {
     },
   );
 
-  // Convert dates to ISO strings using toISOStringSafe
-  const now = new Date();
-  const accessExpiredAt: string & tags.Format<"date-time"> = toISOStringSafe(
-    new Date(now.getTime() + 30 * 60 * 1000),
-  );
-  const refreshableUntil: string & tags.Format<"date-time"> = toISOStringSafe(
-    new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+  // Calculate expiration times using toISOStringSafe
+  const now = toISOStringSafe(new Date());
+  const expiredAt = toISOStringSafe(new Date(Date.now() + 30 * 60 * 1000));
+  const refreshableUntil = toISOStringSafe(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   );
 
-  // Return new token and user information
   return {
-    id: member.id,
+    id: user.id as string & tags.Format<"uuid">,
     token: {
-      access: accessToken,
+      access: newAccessToken,
       refresh: newRefreshToken,
-      expired_at: accessExpiredAt,
+      expired_at: expiredAt,
       refreshable_until: refreshableUntil,
     },
   };

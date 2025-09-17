@@ -13,40 +13,32 @@ export async function postauthMemberJoin(props: {
 }): Promise<ITodoListMember.IAuthorized> {
   const { email, password_hash } = props.body;
 
-  // Generate UUID for new member
-  const id = v4() as string & tags.Format<"uuid">;
-
-  // Current time as ISO string
+  const memberId = v4() as string & tags.Format<"uuid">;
   const now = toISOStringSafe(new Date());
 
-  // Create member record
-  const created = await MyGlobal.prisma.todo_list_members.create({
+  const createdMember = await MyGlobal.prisma.todo_list_members.create({
     data: {
-      id,
+      id: memberId,
       email,
       password_hash,
       created_at: now,
       updated_at: now,
-      deleted_at: null,
     },
   });
 
-  // Generate JWT tokens
-  const accessToken = jwt.sign(
-    {
-      userId: created.id,
-      email: created.email,
-    },
-    MyGlobal.env.JWT_SECRET_KEY,
-    {
-      expiresIn: "1h",
-      issuer: "autobe",
-    },
-  );
+  const payload = {
+    id: createdMember.id,
+    type: "member",
+  };
+
+  const accessToken = jwt.sign(payload, MyGlobal.env.JWT_SECRET_KEY, {
+    expiresIn: "1h",
+    issuer: "autobe",
+  });
 
   const refreshToken = jwt.sign(
     {
-      userId: created.id,
+      userId: createdMember.id,
       tokenType: "refresh",
     },
     MyGlobal.env.JWT_SECRET_KEY,
@@ -56,18 +48,20 @@ export async function postauthMemberJoin(props: {
     },
   );
 
-  // Token expiration times
-  const expired_at = toISOStringSafe(new Date(Date.now() + 3600000));
-  const refreshable_until = toISOStringSafe(new Date(Date.now() + 604800000));
+  const accessTokenExpiresAt = toISOStringSafe(
+    new Date(Date.now() + 1 * 60 * 60 * 1000),
+  );
+  const refreshTokenExpiresAt = toISOStringSafe(
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+  );
 
-  // Return compliant IAuthorized structure
   return {
-    id: created.id,
+    id: createdMember.id,
     token: {
       access: accessToken,
       refresh: refreshToken,
-      expired_at,
-      refreshable_until,
+      expired_at: accessTokenExpiresAt,
+      refreshable_until: refreshTokenExpiresAt,
     },
-  } satisfies ITodoListMember.IAuthorized;
+  };
 }

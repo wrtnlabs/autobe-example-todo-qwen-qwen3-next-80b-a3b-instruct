@@ -11,12 +11,6 @@ export async function deletetodoListMemberTodos(props: {
 }): Promise<void> {
   const { member } = props;
 
-  // Verify member ID is provided
-  if (!member.id) {
-    throw new Error("No member ID provided");
-  }
-
-  // Perform hard delete of all todo items for this member
   await MyGlobal.prisma.todo_list_todos.deleteMany({
     where: {
       todo_list_member_id: member.id,

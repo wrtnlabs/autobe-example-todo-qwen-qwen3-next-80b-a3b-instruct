@@ -15,9 +15,8 @@ export async function memberAuthorize(request: {
     throw new ForbiddenException(`You're not ${payload.type}`);
   }
 
-  // payload.id contains top-level user table ID (todo_list_members.id)
-  // Since todo_list_member_roles references todo_list_members with todo_list_member_id,
-  // we query the member table directly using payload.id as the primary key
+  // payload.id contains top-level user table ID
+  // Query using appropriate field based on schema structure
   const member = await MyGlobal.prisma.todo_list_members.findFirst({
     where: {
       id: payload.id,

@@ -14,59 +14,44 @@ export async function patchtodoListMemberTodos(props: {
 }): Promise<IPageITodoListTodo> {
   const { member, body } = props;
 
-  // Extract pagination parameters with defaults and validate ranges
-  const page = Number(body.page ?? 1);
-  const limit = Number(body.limit ?? 20);
+  // Extract pagination parameters with defaults
+  const page = body.page ?? 1;
+  const limit = body.limit ?? 20;
   const skip = (page - 1) * limit;
 
-  // Extract sort and order with defaults, ensuring only valid values are used
-  const sortField = body.sort === "updated_at" ? "updated_at" : "created_at";
-  const sortOrder = body.order === "asc" ? "asc" : "desc";
-
-  // Build WHERE conditions using conditional spread for strict type safety
-  const where = {
+  // Build where conditions
+  const where: Record<string, any> = {
     todo_list_member_id: member.id,
-    ...(body.search !== undefined &&
-      body.search !== null && {
-        title: { contains: body.search },
-      }),
-    ...(body.status !== undefined &&
-      body.status !== null && {
-        status: body.status,
-      }),
-    ...(body.created_after !== undefined &&
-      body.created_after !== null &&
-      body.created_before !== undefined &&
-      body.created_before !== null && {
-        created_at: {
-          gte: body.created_after,
-          lte: body.created_before,
-        },
-      }),
-    ...(body.created_after !== undefined &&
-      body.created_after !== null &&
-      body.created_before === undefined &&
-      body.created_before === null && {
-        created_at: {
-          gte: body.created_after,
-        },
-      }),
-    ...(body.created_before !== undefined &&
-      body.created_before !== null &&
-      body.created_after === undefined &&
-      body.created_after === null && {
-        created_at: {
-          lte: body.created_before,
-        },
-      }),
   };
 
-  // Build orderBy object inline with strict type safety
-  const orderBy = {
-    [sortField]: sortOrder,
-  };
+  // Add status filter if provided
+  if (body.status !== undefined) {
+    where.status = body.status;
+  }
 
-  // Execute queries in parallel with direct inline parameters
+  // Add search filter for title if provided
+  if (body.search !== undefined) {
+    where.title = { contains: body.search };
+  }
+
+  // Add date range filters for created_at if provided
+  if (body.created_after !== undefined) {
+    if (!where.created_at) where.created_at = {};
+    where.created_at.gte = body.created_after;
+  }
+
+  if (body.created_before !== undefined) {
+    if (!where.created_at) where.created_at = {};
+    where.created_at.lte = body.created_before;
+  }
+
+  // Build orderBy clause with defaults
+  const orderBy: Record<string, any> = {};
+  const sortField = body.sort ?? "created_at";
+  const sortOrder = body.order ?? "desc";
+  orderBy[sortField] = sortOrder;
+
+  // Execute queries
   const [todos, total] = await Promise.all([
     MyGlobal.prisma.todo_list_todos.findMany({
       where,
@@ -77,14 +62,24 @@ export async function patchtodoListMemberTodos(props: {
     MyGlobal.prisma.todo_list_todos.count({ where }),
   ]);
 
-  // Return IPageITodoListTodo structure with proper typing
+  // Convert all DateTime fields from Date objects to ISO strings
+  const formattedTodos: ITodoListTodo[] = todos.map((todo) => ({
+    id: todo.id,
+    todo_list_member_id: todo.todo_list_member_id,
+    title: todo.title,
+    status: todo.status,
+    created_at: toISOStringSafe(todo.created_at),
+    updated_at: toISOStringSafe(todo.updated_at),
+  }));
+
+  // Format response
   return {
     pagination: {
-      current: page,
-      limit,
+      current: Number(page),
+      limit: Number(limit),
       records: total,
       pages: Math.ceil(total / limit),
     },
-    data: todos,
+    data: formattedTodos,
   };
 }
