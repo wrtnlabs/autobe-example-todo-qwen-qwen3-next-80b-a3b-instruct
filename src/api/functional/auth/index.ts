@@ -1,1 +1,1 @@
-export * as member from "./member/index";
+export * as user from "./user/index";

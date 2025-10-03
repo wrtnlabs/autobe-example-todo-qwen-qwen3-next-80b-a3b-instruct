@@ -81,3 +81,5 @@ The system SHALL respond predictably to invalid, malformed, or unexpected inputs
 ### Summary of Compliance
 
 This document contains exactly eight functional requirements, all expressed in EARS format. No backend developer may add, remove, or modify the described behaviors. The system shall not support tagging, due dates, priority levels, categories, shared access, cloud backup, or any feature beyond the scope described herein. This document defines the complete and final functional surface of the Todo List application.
+
+> *Developer Note: This document defines **business requirements only**. All technical implementations (architecture, APIs, database design, etc.) are at the discretion of the development team.*
