@@ -12,43 +12,44 @@ import { ITodoListUser } from "../../../api/structures/ITodoListUser";
 @Controller("/auth/user")
 export class AuthUserController {
   /**
-   * Creates temporary session context for single-user TodoList application
-   * without authentication or user records.
+   * Creates a new user account for the Todo List application to establish a
+   * persistent device-bound identity without requiring user credentials.
    *
-   * This registration (join) operation creates a temporary token-based context
-   * for the single user of the TodoList application. The system is explicitly
-   * designed without user authentication, accounts, or identity management, so
-   * there are no user records, login credentials, or server-side session
-   * storage in the Prisma schema—the only persistent entity is the
-   * todo_list_task table containing id, title, and is_completed fields.
-   * Therefore, this join operation does not collect user credentials or
-   * personal data—it merely creates a session context for local persistence.
-   * This is different from traditional systems where join operations create
-   * user records; here, no user record exists in the database.
+   * This API operation handles user registration for the Todo List application.
+   * The system operates as a single-user personal application where no
+   * authentication is required, but a persistent identity mechanism is needed
+   * to maintain task data between sessions. When a user first accesses the
+   * application, this operation creates a new todo_list_user record with a
+   * system-generated UUID and timestamps. The user's identity is maintained
+   * through a JWT token issued upon successful registration, which contains the
+   * user ID in its payload. The operation uses the todo_list_user table from
+   * the Prisma schema, which defines fields for id (UUID), created_at, and
+   * updated_at, but does not include any authentication fields such as email,
+   * password, or username, as these are not part of the application design. The
+   * registration process is designed to be transparent to the user, occurring
+   * automatically when the application is first loaded, with no user-facing
+   * registration form or interaction required.
    *
-   * The operation returns a token that correlates with a local storage key,
-   * allowing the client to retrieve and modify tasks. Since no user table
-   * exists in Prisma schema, no user-specific data is stored—only task data in
-   * todo_list_task. The token is cryptographically generated and stored
-   * client-side, not server-side, satisfying the requirement that all
-   * operations occur under implicit user context.
+   * The system implements an implicit identity model where the user's identity
+   * is tied to their browser device, with no external login or credential
+   * collection. The todo_list_user table maintains the single user record, and
+   * the registration operation ensures this record exists and is properly
+   * initialized. Since the schema has no password or credential fields, the
+   * application does not implement any credential validation or secure storage
+   * mechanisms.
    *
-   * This join operation enables the system to meet the requirement that task
-   * data persists between sessions without any authentication or syncing
-   * mechanism. Since the schema has no fields for user_id, email, password, or
-   * any authentication metadata, the session token is the only artifact needed
-   * to maintain state locally. This operation is non-identity-based; it doesn't
-   * create a user identity—it creates a persistent local context.
+   * The JWT token returned includes the user ID in the payload and is stored in
+   * browser localStorage to maintain session state. This allows the application
+   * to restore the user context upon subsequent visits without prompting for
+   * authentication. The operation does not create, modify, or validate any user
+   * credentials as none are defined in the schema.
    *
-   * Security is maintained through token secrecy on the client side, as there
-   * is no server-side storage of tokens or user data. This approach aligns
-   * completely with the Prisma schema which lacks any authentication columns.
-   *
-   * Since the system has no login, refresh, or session management schema
-   * fields, the only required operations are join (to establish temporary
-   * context) and refresh (to renew tokens). The single-user constraint makes
-   * any other authentication operations redundant and prohibited by the
-   * functional requirements.
+   * The implementation aligns with the business requirements that specify a
+   * single-user system with no authentication mechanism, using the
+   * todo_list_user table to maintain a persistent identifier for the user. No
+   * password reset, email verification, or account management operations are
+   * supported or needed, as these features are explicitly excluded from the
+   * system design.
    *
    * @param connection
    * @setHeader token.access Authorization
@@ -71,52 +72,43 @@ export class AuthUserController {
   }
 
   /**
-   * Establishes client-side token session for member role as required by
-   * authorization template despite no authentication fields in schema.
+   * Issues a new JWT token to maintain the device-bound user session for the
+   * Todo List application without requiring user credentials.
    *
-   * This login operation is required for the 'member' role as defined by the
-   * role-based essential operations rule, even though the TodoList application
-   * has no authentication infrastructure. Because the role.kind is "member",
-   * the system must generate a login operation alongside join and refresh, per
-   * the mandatory generation logic. The Prisma schema contains no user table
-   * and no authentication fields (no email, password, created_at,
-   * session_token, is_active, etc.)—only the todo_list_task table with id,
-   * title, and is_completed. Therefore, this login operation does not validate
-   * any credentials or retrieve any user data from the database.
+   * This API operation handles user authentication for the Todo List
+   * application, serving as a token renewal mechanism rather than traditional
+   * credential-based login. Although the application is designed as a
+   * single-user system without password, email, or username authentication,
+   * this operation provides session management by issuing a new JWT token when
+   * the user opens the application. The operation confirms the existence of a
+   * todo_list_user record in the database using the user's device/browser
+   * identifier, which is persisted in localStorage. The todo_list_user schema
+   * only contains id, created_at, and updated_at fields, with no password,
+   * email, or authentication-related columns, which aligns with the business
+   * requirement of having no authentication mechanism.
    *
-   * The login endpoint exists solely for compliance with the authorization
-   * generation rules. The operation accepts no request body and returns a new
-   * access token, effectively re-establishing the system's single implicit user
-   * context. There is no password, username, or session identifier verification
-   * because the schema contains no fields for these. This operation merely acts
-   * as a client-side token issuance mechanism, distinct only by name from join
-   * and refresh, to satisfy the authorization generation template.
+   * Integration with the Prisma schema requires no credential validation, as
+   * the system relies on the existence of a user record rather than any
+   * security credentials. The login operation does not validate passwords or
+   * collect user input, since the schema does not contain fields like
+   * password_hash, email_verified, or authenticator_secret. Instead, it simply
+   * ensures the user's identity record exists and issues a JWT token containing
+   * the user ID from the existing todo_list_user record.
    *
-   * Since there are no authentication fields in the schema, this login
-   * implementation cannot perform credential validation, account existence
-   * checks, security audits, or authentication logic. It is a purely syntactic
-   * placeholder that enables the system to generate a valid authorization
-   * interface for the member role, consistent with the specified generation
-   * rules. The security context remains entirely client-side, and no data from
-   * the todo_list_task table is used in this operation.
+   * This operation exists to maintain consistent API patterns and to provide
+   * the client with a current authentication token. All authentication logic
+   * happens on the client side in localStorage; this backend operation simply
+   * responds with a new token when requested. The operation has no requirement
+   * for external input, and all validation occurs by verifying the existence of
+   * the user's device-bound record in the database.
    *
-   * This operation is mandatory because the user's role is defined as "member"
-   * and the specification dictates that member and admin roles must include
-   * login. Even though the schema lacks authentication fields, the generation
-   * system requires this operation to be present. This is a technical
-   * constraint fulfillment, not a functional implementation.
-   *
-   * No related authentication operations are possible because the Prisma schema
-   * contains no fields for user credentials, password resets, email
-   * verification, or session management—all explicitly prohibited by the
-   * functional requirements. The login operation is functionally redundant but
-   * structurally mandated by the authorization template.
-   *
-   * This is compliant with the generation rules: role.kind === "member"
-   * requires join, login, and refresh. The Prisma schema defines what data can
-   * be persisted, not what operations must be declared. As such, the operation
-   * is generated for template compliance despite having no implementation logic
-   * based on auth fields.
+   * The implementation follows the business model where identity is
+   * device-bound and session management is automated. No authentication flows
+   * involving passwords, email verification, or security questions are
+   * supported, as the schema lacks fields for these features. This operation
+   * ensures that even though there's no user authentication in the traditional
+   * sense, the application maintains consistent API contracts for client-side
+   * authentication logic.
    *
    * @param connection
    * @setHeader token.access Authorization
@@ -139,44 +131,45 @@ export class AuthUserController {
   }
 
   /**
-   * Renews temporary session token for local state persistence in single-user
-   * TodoList application.
+   * Refreshes the user's access token by validating the client-provided refresh
+   * token against an existing todo_list_user identity.
    *
-   * This refresh operation renews the temporary client-side session token used
-   * to maintain state across browser sessions for the TodoList application. The
-   * system is explicitly designed without authentication, user accounts, or
-   * identity management, so there are no user records, login credentials, or
-   * server-side session storage in the Prisma schema—the only persistent entity
-   * is the todo_list_task table containing id, title, and is_completed fields.
-   * Therefore, this refresh operation does not authenticate users or validate
-   * credentials—there are no such mechanisms.
+   * This API operation handles token refresh for the Todo List application's
+   * authentication system. The system operates as a single-user personal
+   * application with no traditional authentication mechanism—no passwords,
+   * emails, or credentials are collected or stored. The refresh functionality
+   * is implemented as a client-side session persistence mechanism, where the
+   * user's browser maintains a refresh token in localStorage. This operation
+   * receives this refresh token from the client, validates its association with
+   * a todo_list_user record in the database, and issues a new access token.
    *
-   * Instead, when the client's temporary token expires, this endpoint
-   * regenerates a new token with the same session context and returns it. This
-   * maintains state persistence for the single implicit user without relying on
-   * any user-specific database fields (which do not exist). The token is stored
-   * in local storage and used by the client to access task data. Since the
-   * schema contains no fields such as refresh_token, last_login, or
-   * session_expiry, no server-side token validation or storage occurs. The
-   * refresh endpoint simply reissues the token.
+   * The Prisma schema for todo_list_user contains only id, created_at, and
+   * updated_at fields, with no column for storing refresh tokens, refresh token
+   * expiration, or any authentication-related data. Therefore, the refresh
+   * operation cannot validate refresh tokens against database-stored values as
+   * in traditional authentication systems. Instead, it treats the refresh token
+   * received from the client as a linked identifier for the user's session,
+   * trusting the client's persistence of the token as proof of identity. The
+   * implementation relies on the fact that the user has a todo_list_user record
+   * (created during join/login) and matches this record with the user ID
+   * embedded in the refresh token.
    *
-   * This approach fulfills the requirement that task data persists between
-   * sessions without any authentication or syncing mechanism. The operation has
-   * no security implications tied to the database, as no user data is stored.
-   * All state is maintained client-side using this token system, perfectly
-   * aligning with the Prisma schema which lacks any authentication columns.
+   * The operation works by extracting the user ID from the refresh token that
+   * the client presents, verifying that a todo_list_user with that ID exists in
+   * the database, and then issuing a new access token. Since there are no
+   * refresh token storage columns in the schema, the system assumes that the
+   * client's refresh token has not been tampered with and that the user's
+   * identity is correctly maintained through the browser's localStorage. The
+   * refresh operation does not check expiration dates, token usage counts, or
+   * other security measures because these features are unsupported by the
+   * Prisma schema and are outside the scope of the minimal application design.
    *
-   * Refresh is required because temporary tokens expire and must be renewed to
-   * maintain the illusion of persistence. Since there is no login functionality
-   * (which would require authentication fields that do not exist in the
-   * schema), the only two authentication-related operations are join (initial
-   * context creation) and refresh (token renewal). Both serve purely local
-   * state maintenance for the single-user context defined in the requirements.
-   *
-   * No related authentication operations are possible because the Prisma schema
-   * contains no fields for user credentials, password resets, email
-   * verification, or session management—all explicitly prohibited by the
-   * functional requirements.
+   * The implementation follows the business requirement of a single-user,
+   * no-authentication system while maintaining API consistency for client-side
+   * authentication logic. As the schema lacks any authentication-specific
+   * fields, the refresh mechanism is a formality that provides the application
+   * with consistent token renewal patterns without any actual credential
+   * validation.
    *
    * @param connection
    * @setHeader token.access Authorization

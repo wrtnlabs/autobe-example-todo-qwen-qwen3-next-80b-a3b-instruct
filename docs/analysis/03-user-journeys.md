@@ -66,7 +66,7 @@ IF a user clears their browser’s localStorage or manually deletes the Todo Lis
 
 IF the browser does not support localStorage, THEN THE system SHALL display an error message stating "Your browser does not support task persistence. Some features may not work as expected." and continue to allow task creation and management only for the current session.
 
-IF the user attempts to access the application on an unsupported browser (e.g., Internet Explorer 11 or earlier), THEN THE system SHALL display an error message stating "This application is not compatible with your browser. Please use Chrome, Firefox, Safari, or Edge." and disable all task interaction controls.
+IF a user attempts to access the application on an unsupported browser (e.g., Internet Explorer 11 or earlier), THEN THE system SHALL display an error message stating "This application is not compatible with your browser. Please use Chrome, Firefox, Safari, or Edge." and disable all task interaction controls.
 
 IF a network error occurs during any attempted save operation (e.g., due to temporary browser storage corruption), THEN THE system SHALL silently ignore the error, retain the current in-memory state, and continue normal operation. No error message shall be shown to the user.
 

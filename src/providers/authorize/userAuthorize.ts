@@ -15,19 +15,15 @@ export async function userAuthorize(request: {
     throw new ForbiddenException(`You're not ${payload.type}`);
   }
 
-  // Since the Prisma schema shows todo_list_task as a standalone table
-  // with no relationship to a user table, and there's only one user,
-  // the JWT payload.id directly corresponds to the todo_list_task.id
-  // in this singular-user application.
-  
-  // Query the todo_list_task table to verify existence
-  const task = await MyGlobal.prisma.todo_list_task.findFirst({
+  // payload.id contains top-level user table ID
+  // Query using primary key since todo_list_user is the top-level entity
+  const user = await MyGlobal.prisma.todo_list_user.findFirst({
     where: {
-      id: payload.id
-    }
+      id: payload.id,
+    },
   });
 
-  if (task === null) {
+  if (user === null) {
     throw new ForbiddenException("You're not enrolled");
   }
 

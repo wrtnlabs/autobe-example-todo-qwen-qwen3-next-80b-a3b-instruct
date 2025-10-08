@@ -4,7 +4,7 @@ import jwt from "jsonwebtoken";
 import typia, { tags } from "typia";
 import { v4 } from "uuid";
 import { MyGlobal } from "../MyGlobal";
-import { PasswordUtil } from "../utils/passwordUtil";
+import { PasswordUtil } from "../utils/PasswordUtil";
 import { toISOStringSafe } from "../utils/toISOStringSafe";
 
 import { ITodoListUser } from "@ORGANIZATION/PROJECT-api/lib/structures/ITodoListUser";
@@ -14,14 +14,23 @@ import { UserPayload } from "../decorators/payload/UserPayload";
 export async function postAuthUserLogin(props: {
   user: UserPayload;
 }): Promise<ITodoListUser.IAuthorized> {
-  const now = new Date();
-  const accessExpiresAt = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour
-  const refreshExpiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  // Verify user exists in the database using the provided user ID
+  const user = await MyGlobal.prisma.todo_list_user.findFirst({
+    where: {
+      id: props.user.id,
+    },
+  });
 
+  // If user doesn't exist, throw a not found error
+  if (!user) {
+    throw new HttpException("User not found", 404);
+  }
+
+  // Generate access token with expiration in 1 hour
   const accessToken = jwt.sign(
     {
-      userId: props.user.id,
-      type: props.user.type,
+      id: props.user.id,
+      type: "user",
     },
     MyGlobal.env.JWT_SECRET_KEY,
     {
@@ -30,9 +39,10 @@ export async function postAuthUserLogin(props: {
     },
   );
 
+  // Generate refresh token with expiration in 7 days
   const refreshToken = jwt.sign(
     {
-      userId: props.user.id,
+      id: props.user.id,
       tokenType: "refresh",
     },
     MyGlobal.env.JWT_SECRET_KEY,
@@ -42,13 +52,16 @@ export async function postAuthUserLogin(props: {
     },
   );
 
+  // Return the authorized user object with JWT tokens and expiration times
   return {
-    id: props.user.id,
+    id: user.id,
     token: {
       access: accessToken,
       refresh: refreshToken,
-      expired_at: toISOStringSafe(accessExpiresAt),
-      refreshable_until: toISOStringSafe(refreshExpiresAt),
+      expired_at: toISOStringSafe(new Date(Date.now() + 60 * 60 * 1000)), // 1 hour from now
+      refreshable_until: toISOStringSafe(
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      ), // 7 days from now
     },
   };
 }
